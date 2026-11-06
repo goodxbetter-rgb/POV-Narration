@@ -1,111 +1,407 @@
-\
-(() => {
-    'use strict';
 
-    const TOOLBAR_ID = 'ui-enhancements-quick-insert';
-    const TEXTAREA_SELECTOR = '#send_textarea';
+import { extension_settings } from "../../../extensions.js";
+import { getContext } from "../../../extensions.js";
+import { saveSettingsDebounced } from "../../../../script.js";
 
-    const WRAPPERS = [
-        { id: 'quote', label: '""', title: 'ใส่เครื่องหมายคำพูด', open: '"', close: '"' },
-        { id: 'bold', label: '**', title: 'ใส่ตัวหนา', open: '**', close: '**' },
-        { id: 'ooc', label: '(OOC:)', title: 'ใส่คำสั่ง OOC', open: '(OOC: ', close: ')' }
-    ];
+const EXT = "pov-narration-refiner";
 
-    function getTextarea() {
-        const el = document.querySelector(TEXTAREA_SELECTOR);
-        return el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') ? el : null;
+const DEFAULTS = {
+    buttonX: null,
+    buttonY: null,
+    windowWidth: 460,
+    windowHeight: 570
+};
+
+let settings;
+let root, launcher;
+let inputEl, outputEl, refineButton, statusEl;
+
+const PROMPT = `You are a roleplay narration editor.
+
+Your task is to refine the user's narration, not continue the story.
+
+STRICT RULES:
+- Preserve the user's original intent and meaning.
+- Rewrite naturally with smooth, immersive prose.
+- Do not add events or continue the scene.
+- Never invent {{user}}'s thoughts, emotions, dialogue, reactions, or actions.
+- Never control {{char}} or other characters.
+- Do not invent character details, appearance, clothing, or surroundings.
+- Preserve names, gender, pronouns, relationships, and established facts.
+- You may improve descriptions and sentence flow without changing meaning.
+- Keep the same language as the original text.
+- Return ONLY the rewritten narration.
+- No explanations, introductions, or commentary.
+
+USER TEXT:
+{{INPUT}}
+
+Return only the refined narration.`;
+
+function initSettings() {
+    if (!extension_settings[EXT]) {
+        extension_settings[EXT] = { ...DEFAULTS };
+    }
+    settings = extension_settings[EXT];
+}
+
+function save() {
+    saveSettingsDebounced();
+}
+
+function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+}
+
+function status(text, type = "") {
+    statusEl.textContent = text;
+    statusEl.dataset.kind = type;
+}
+
+function buildPrompt(text) {
+    return PROMPT.replace("{{INPUT}}", () => text.trim());
+}
+
+async function generate(text) {
+    const context = getContext();
+
+    if (typeof context.generateQuietPrompt !== "function") {
+        throw new Error("ไม่พบ generateQuietPrompt ใน SillyTavern Context");
     }
 
-    function insertWrapper(wrapper) {
-        const textarea = getTextarea();
-        if (!textarea || textarea.disabled || textarea.readOnly) return;
+    return await context.generateQuietPrompt({
+        quietPrompt: buildPrompt(text)
+    });
+}
 
-        textarea.focus();
+function extractResult(result) {
+    if (typeof result === "string") return result.trim();
 
-        const start = textarea.selectionStart ?? textarea.value.length;
-        const end = textarea.selectionEnd ?? start;
-        const value = textarea.value;
-        const selected = value.slice(start, end);
+    if (result && typeof result === "object") {
+        for (const key of ["text", "content", "output"]) {
+            if (typeof result[key] === "string") {
+                return result[key].trim();
+            }
+        }
+    }
 
-        const before = value.slice(0, start);
-        const after = value.slice(end);
-        const replacement = wrapper.open + selected + wrapper.close;
+    return "";
+}
 
-        textarea.value = before + replacement + after;
+async function refine() {
+    const text = inputEl.value.trim();
 
-        if (start !== end) {
-            // Keep the wrapped selection selected so it can be replaced or edited immediately.
-            textarea.setSelectionRange(
-                start + wrapper.open.length,
-                start + wrapper.open.length + selected.length
-            );
+    if (!text || refineButton.disabled) return;
+
+    refineButton.disabled = true;
+    refineButton.textContent = "กำลังปรับคำ...";
+    outputEl.value = "";
+    status("กำลังประมวลผล...", "working");
+
+    try {
+        const result = await generate(text);
+        const output = extractResult(result);
+
+        if (!output) {
+            throw new Error("AI ไม่ได้ส่งข้อความกลับมา");
+        }
+
+        outputEl.value = output;
+        status("ปรับคำบรรยายเรียบร้อย", "success");
+
+    } catch (error) {
+        console.error(`[${EXT}]`, error);
+        status(error.message || "เกิดข้อผิดพลาด", "error");
+
+    } finally {
+        refineButton.disabled = false;
+        refineButton.textContent = "ปรับคำบรรยาย";
+    }
+}
+
+async function copyResult() {
+    const text = outputEl.value.trim();
+    if (!text) return;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        status("คัดลอกข้อความแล้ว", "success");
+    } catch {
+        outputEl.focus();
+        outputEl.select();
+        const ok = document.execCommand("copy");
+        status(ok ? "คัดลอกข้อความแล้ว" : "คัดลอกไม่สำเร็จ", ok ? "success" : "error");
+    }
+}
+
+function toggleWindow() {
+    root.classList.toggle("pov-hidden");
+
+    if (!root.classList.contains("pov-hidden")) {
+        inputEl.focus();
+    }
+}
+
+function createLauncher() {
+    launcher = el("button", "pov-launcher", "✎");
+    launcher.type = "button";
+    launcher.title = "POV Narration Refiner";
+
+    if (Number.isFinite(settings.buttonX)) {
+        launcher.style.left = `${settings.buttonX}px`;
+        launcher.style.top = `${settings.buttonY}px`;
+        launcher.style.right = "auto";
+        launcher.style.bottom = "auto";
+    }
+
+    let dragging = false;
+    let moved = false;
+    let sx = 0, sy = 0, ox = 0, oy = 0;
+
+    launcher.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+
+        dragging = true;
+        moved = false;
+        sx = e.clientX;
+        sy = e.clientY;
+
+        const rect = launcher.getBoundingClientRect();
+        ox = rect.left;
+        oy = rect.top;
+
+        launcher.setPointerCapture(e.pointerId);
+    });
+
+    launcher.addEventListener("pointermove", e => {
+        if (!dragging) return;
+
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+
+        if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+        if (!moved) return;
+
+        const x = Math.max(0, Math.min(window.innerWidth - 42, ox + dx));
+        const y = Math.max(0, Math.min(window.innerHeight - 42, oy + dy));
+
+        launcher.style.left = `${x}px`;
+        launcher.style.top = `${y}px`;
+        launcher.style.right = "auto";
+        launcher.style.bottom = "auto";
+    });
+
+    launcher.addEventListener("pointerup", () => {
+        if (!dragging) return;
+        dragging = false;
+
+        if (moved) {
+            const rect = launcher.getBoundingClientRect();
+            settings.buttonX = Math.round(rect.left);
+            settings.buttonY = Math.round(rect.top);
+            save();
         } else {
-            // No selection: place the caret between the opening and closing markers.
-            const caret = start + wrapper.open.length;
-            textarea.setSelectionRange(caret, caret);
+            toggleWindow();
         }
+    });
+}
 
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+function createWindow() {
+    root = el("section", "pov-window pov-hidden");
 
-    function createToolbar() {
-        const toolbar = document.createElement('div');
-        toolbar.id = TOOLBAR_ID;
-        toolbar.className = 'ui-enhancements-toolbar';
-        toolbar.setAttribute('aria-label', 'Quick Insert Toolbar');
+    const header = el("header", "pov-header");
 
-        const label = document.createElement('span');
-        label.className = 'ui-enhancements-toolbar-label';
-        label.textContent = 'แทรกด่วน';
-        toolbar.appendChild(label);
+    const heading = el("div", "pov-heading");
+    heading.append(
+        el("div", "pov-title", "POV Narration Refiner"),
+        el("div", "pov-subtitle", "ปรับคำบรรยายของ {{user}}")
+    );
 
-        for (const wrapper of WRAPPERS) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'ui-enhancements-button';
-            button.textContent = wrapper.label;
-            button.title = wrapper.title;
-            button.setAttribute('aria-label', wrapper.title);
-            button.addEventListener('mousedown', event => {
-                // Keep the textarea selection/caret when the toolbar button receives the click.
-                event.preventDefault();
-            });
-            button.addEventListener('click', () => insertWrapper(wrapper));
-            toolbar.appendChild(button);
+    const close = el("button", "pov-close", "×");
+    close.type = "button";
+    close.addEventListener("click", toggleWindow);
+
+    header.append(heading, close);
+
+    const body = el("div", "pov-body");
+
+    const inputLabel = el("label", "pov-label", "ข้อความต้นฉบับ");
+
+    inputEl = el("textarea", "pov-textarea");
+    inputEl.placeholder = "พิมพ์หรือวางข้อความที่ต้องการปรับ...";
+    inputEl.rows = 6;
+
+    const actions = el("div", "pov-actions");
+
+    refineButton = el("button", "pov-primary", "ปรับคำบรรยาย");
+    refineButton.type = "button";
+    refineButton.addEventListener("click", refine);
+
+    const clear = el("button", "pov-secondary", "ล้าง");
+    clear.type = "button";
+    clear.addEventListener("click", () => {
+        inputEl.value = "";
+        outputEl.value = "";
+        status("");
+        inputEl.focus();
+    });
+
+    actions.append(refineButton, clear);
+
+    const outputHeader = el("div", "pov-output-header");
+
+    const outputLabel = el("label", "pov-label", "ผลลัพธ์");
+
+    const copy = el("button", "pov-copy", "คัดลอก");
+    copy.type = "button";
+    copy.addEventListener("click", copyResult);
+
+    outputHeader.append(outputLabel, copy);
+
+    outputEl = el("textarea", "pov-textarea pov-output");
+    outputEl.placeholder = "ผลลัพธ์จะแสดงที่นี่...";
+    outputEl.rows = 8;
+    outputEl.readOnly = true;
+
+    statusEl = el("div", "pov-status");
+
+    const hint = el(
+        "div",
+        "pov-hint",
+        "ปรับสำนวนเท่านั้น ไม่เขียนต่อฉากและไม่ส่งข้อความเข้าแชทอัตโนมัติ"
+    );
+
+    body.append(
+        inputLabel,
+        inputEl,
+        actions,
+        outputHeader,
+        outputEl,
+        statusEl,
+        hint
+    );
+
+    root.append(header, body);
+
+    root.style.width = `${settings.windowWidth}px`;
+    root.style.height = `${settings.windowHeight}px`;
+
+    makeDraggable(header);
+    makeResizable();
+
+    return root;
+}
+
+function makeDraggable(header) {
+    let dragging = false;
+    let sx, sy, ox, oy;
+
+    header.addEventListener("pointerdown", e => {
+        if (e.target.closest("button")) return;
+
+        dragging = true;
+        const rect = root.getBoundingClientRect();
+
+        sx = e.clientX;
+        sy = e.clientY;
+        ox = rect.left;
+        oy = rect.top;
+
+        header.setPointerCapture(e.pointerId);
+    });
+
+    header.addEventListener("pointermove", e => {
+        if (!dragging) return;
+
+        const x = Math.max(0, Math.min(
+            window.innerWidth - root.offsetWidth,
+            ox + e.clientX - sx
+        ));
+
+        const y = Math.max(0, Math.min(
+            window.innerHeight - 60,
+            oy + e.clientY - sy
+        ));
+
+        root.style.left = `${x}px`;
+        root.style.top = `${y}px`;
+        root.style.transform = "none";
+    });
+
+    header.addEventListener("pointerup", () => {
+        dragging = false;
+    });
+}
+
+function makeResizable() {
+    const handle = el("div", "pov-resize");
+    root.append(handle);
+
+    let resizing = false;
+    let sx, sy, sw, sh;
+
+    handle.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        resizing = true;
+
+        const rect = root.getBoundingClientRect();
+        sx = e.clientX;
+        sy = e.clientY;
+        sw = rect.width;
+        sh = rect.height;
+
+        handle.setPointerCapture(e.pointerId);
+    });
+
+    handle.addEventListener("pointermove", e => {
+        if (!resizing) return;
+
+        const width = Math.max(340, Math.min(
+            900,
+            sw + e.clientX - sx
+        ));
+
+        const height = Math.max(420, Math.min(
+            900,
+            sh + e.clientY - sy
+        ));
+
+        root.style.width = `${width}px`;
+        root.style.height = `${height}px`;
+
+        settings.windowWidth = width;
+        settings.windowHeight = height;
+    });
+
+    handle.addEventListener("pointerup", () => {
+        resizing = false;
+        save();
+    });
+}
+
+function init() {
+    if (document.getElementById("pov-narration-refiner-root")) return;
+
+    initSettings();
+
+    createLauncher();
+    createWindow();
+
+    launcher.id = "pov-narration-refiner-launcher";
+    root.id = "pov-narration-refiner-root";
+
+    document.body.append(launcher, root);
+
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+            root.classList.add("pov-hidden");
         }
-        return toolbar;
-    }
+    });
 
-    function mountToolbar() {
-        const textarea = getTextarea();
-        if (!textarea) return;
+    console.info(`[${EXT}] loaded`);
+}
 
-        const existing = document.getElementById(TOOLBAR_ID);
-        if (existing) {
-            if (!existing.isConnected) existing.remove();
-            else return;
-        }
-
-        const toolbar = createToolbar();
-
-        // Place the toolbar immediately before the message input, within its existing layout.
-        const anchor = textarea.closest('.text_pole') || textarea;
-        anchor.parentNode.insertBefore(toolbar, anchor);
-    }
-
-    function init() {
-        mountToolbar();
-
-        const observer = new MutationObserver(() => {
-            if (!document.getElementById(TOOLBAR_ID)) mountToolbar();
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init, { once: true });
-    } else {
-        init();
-    }
-})();
+jQuery(init);
