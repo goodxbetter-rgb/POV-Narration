@@ -1,0 +1,44 @@
+.ui-enhancements-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 6px 0;
+    padding: 6px 9px;
+    border: 1px solid var(-- SmartThemeBorderColor, rgba(150, 150, 150, 0.35));
+    border-radius: 9px;
+    background: var(--SmartThemeBlurTintColor, rgba(30, 30, 30, 0.82));
+    color: var(--SmartThemeBodyColor, inherit);
+}
+
+.ui-enhancements-toolbar-label {
+    margin-right: 3px;
+    font-size: 0.82em;
+    opacity: 0.72;
+}
+
+.ui-enhancements-button {
+    min-width: 34px;
+    padding: 5px 10px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(150, 150, 150, 0.4));
+    border-radius: 6px;
+    background: var(--SmartThemeQuoteColor, rgba(110, 110, 110, 0.18));
+    color: var(--SmartThemeBodyColor, inherit);
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.ui-enhancements-button:hover {
+    background: var(--SmartThemeEmColor, rgba(150, 150, 150, 0.25));
+    border-color: var(--SmartThemeBodyColor, rgba(180, 180, 180, 0.65));
+}
+
+.ui-enhancements-button:focus-visible {
+    outline: 2px solid var(--SmartThemeEmColor, currentColor);
+    outline-offset: 2px;
+}
