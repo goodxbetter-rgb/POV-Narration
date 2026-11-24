@@ -1,5 +1,15 @@
 
-/* ===== Android / Mobile Launcher Fix ===== */
+/* ========================================
+   POV NARRATION REFINER
+   Dark Minimal / Warm Gold
+======================================== */
+
+#pov-narration-refiner-root,
+#pov-narration-refiner-launcher {
+    box-sizing: border-box;
+}
+
+/* ===== Floating Launcher ===== */
 
 .pov-launcher {
     display: flex !important;
@@ -9,19 +19,419 @@
     position: fixed !important;
     z-index: 2147483000 !important;
 
-    pointer-events: auto !important;
-    visibility: visible !important;
-    opacity: 1 !important;
+    right: 28px;
+    bottom: 120px;
 
-    -webkit-appearance: none;
-    appearance: none;
+    width: 42px;
+    height: 42px;
+    padding: 0;
 
-    -webkit-tap-highlight-color: transparent;
+    border: 1px solid #a98455;
+    border-radius: 50%;
+
+    background: #211d1a;
+    color: #d8b27c;
+
+    font-family: inherit;
+    font-size: 20px;
+    line-height: 1;
+
+    cursor: grab;
     touch-action: none;
-
     user-select: none;
     -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+
+    box-shadow: 0 4px 16px #0007;
+
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+
+    transition:
+        background .18s ease,
+        border-color .18s ease,
+        box-shadow .18s ease;
 }
+
+.pov-launcher:hover {
+    background: #35291f;
+    border-color: #d0a66c;
+    box-shadow: 0 5px 20px #0009;
+}
+
+.pov-launcher:active {
+    cursor: grabbing;
+}
+
+/* ===== Main Window ===== */
+
+.pov-window {
+    position: fixed;
+    z-index: 2147482999;
+
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    flex-direction: column;
+
+    width: 460px;
+    height: 570px;
+
+    min-width: 340px;
+    min-height: 420px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+
+    box-sizing: border-box;
+    overflow: hidden;
+
+    border: 1px solid rgba(169, 132, 85, .55);
+    border-radius: 14px;
+
+    background: rgba(25, 24, 23, .98);
+    color: #e8e2d9;
+
+    box-shadow:
+        0 12px 45px rgba(0, 0, 0, .55),
+        0 0 0 1px rgba(255, 255, 255, .025);
+
+    font-family: inherit;
+}
+
+.pov-hidden {
+    display: none !important;
+}
+
+/* ===== Header ===== */
+
+.pov-header {
+    display: flex;
+    flex: 0 0 auto;
+
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 15px 17px;
+
+    border-bottom: 1px solid rgba(255, 255, 255, .09);
+
+    background: rgba(35, 31, 28, .98);
+
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.pov-header:active {
+    cursor: grabbing;
+}
+
+.pov-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.pov-title {
+    color: #dfbd8c;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.pov-subtitle {
+    color: #92877b;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.pov-close {
+    display: flex;
+    flex: 0 0 auto;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 30px;
+    height: 30px;
+    padding: 0;
+
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 7px;
+
+    background: rgba(255, 255, 255, .06);
+    color: #c9c1b8;
+
+    font-size: 20px;
+    line-height: 1;
+
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.pov-close:hover {
+    background: rgba(190, 85, 75, .2);
+    border-color: rgba(190, 85, 75, .4);
+    color: #f0aaa2;
+}
+
+/* ===== Body ===== */
+
+.pov-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 9px;
+
+    min-width: 0;
+    min-height: 0;
+
+    padding: 15px 17px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+    scrollbar-color: #66513a transparent;
+}
+
+.pov-label {
+    display: block;
+    flex: 0 0 auto;
+
+    color: #c5a477;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .03em;
+}
+
+/* ===== Textareas ===== */
+
+.pov-textarea {
+    display: block;
+    flex: 0 1 auto;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 90px;
+
+    box-sizing: border-box;
+    padding: 11px 12px;
+
+    border: 1px solid rgba(169, 132, 85, .28);
+    border-radius: 9px;
+
+    outline: none;
+    resize: vertical;
+
+    background: rgba(15, 15, 15, .72);
+    color: #e9e3dc;
+
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.7;
+
+    scrollbar-width: thin;
+    scrollbar-color: #66513a transparent;
+
+    transition: border-color .18s ease;
+}
+
+.pov-textarea::placeholder {
+    color: #77716a;
+    opacity: 1;
+}
+
+.pov-textarea:focus {
+    border-color: rgba(195, 154, 98, .75);
+}
+
+.pov-output {
+    flex: 1 1 auto;
+    min-height: 120px;
+
+    background: rgba(31, 28, 25, .85);
+    color: #e9d7bd;
+}
+
+/* ===== Action Buttons ===== */
+
+.pov-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.pov-primary,
+.pov-secondary,
+.pov-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    min-height: 34px;
+    padding: 7px 12px;
+
+    border-radius: 7px;
+
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: .18s ease;
+}
+
+.pov-primary {
+    flex: 1 1 auto;
+
+    border: 1px solid #a98455;
+    background: #755b3e;
+    color: #fff0d9;
+}
+
+.pov-primary:hover {
+    border-color: #d1aa73;
+    background: #896b49;
+}
+
+.pov-primary:disabled {
+    opacity: .55;
+    cursor: wait;
+}
+
+.pov-secondary {
+    flex: 0 0 auto;
+
+    border: 1px solid rgba(255, 255, 255, .13);
+    background: rgba(255, 255, 255, .06);
+    color: #c9c1b8;
+}
+
+.pov-secondary:hover {
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+}
+
+/* ===== Output Header ===== */
+
+.pov-output-header {
+    display: flex;
+    flex: 0 0 auto;
+
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+
+    margin-top: 5px;
+}
+
+.pov-copy {
+    min-height: 27px;
+    padding: 4px 10px;
+
+    border: 1px solid rgba(195, 154, 98, .38);
+    background: rgba(195, 154, 98, .10);
+    color: #dfbd8c;
+}
+
+.pov-copy:hover {
+    border-color: #c39a62;
+    background: rgba(195, 154, 98, .2);
+}
+
+/* ===== Status ===== */
+
+.pov-status {
+    flex: 0 0 auto;
+
+    min-height: 15px;
+
+    color: #a79a89;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.pov-status.success {
+    color: #91b89a;
+}
+
+.pov-status.error {
+    color: #df8e83;
+}
+
+/* ===== Hint ===== */
+
+.pov-hint {
+    flex: 0 0 auto;
+
+    padding-top: 7px;
+
+    border-top: 1px solid rgba(255, 255, 255, .07);
+
+    color: #77716a;
+    font-size: 9px;
+    line-height: 1.6;
+}
+
+/* ===== Resize Handle ===== */
+
+.pov-resize {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+
+    width: 18px;
+    height: 18px;
+
+    cursor: nwse-resize;
+    touch-action: none;
+}
+
+.pov-resize::after {
+    content: "";
+
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+
+    width: 8px;
+    height: 8px;
+
+    border-right: 2px solid #a98455;
+    border-bottom: 2px solid #a98455;
+    opacity: .7;
+}
+
+/* ===== Scrollbars ===== */
+
+.pov-body::-webkit-scrollbar,
+.pov-textarea::-webkit-scrollbar {
+    width: 5px;
+}
+
+.pov-body::-webkit-scrollbar-thumb,
+.pov-textarea::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background: #66513a;
+}
+
+.pov-body::-webkit-scrollbar-track,
+.pov-textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* ========================================
+   TABLET & MOBILE
+======================================== */
 
 @media (max-width: 600px) {
     .pov-launcher {
@@ -30,5 +440,94 @@
 
         right: 16px;
         bottom: calc(90px + env(safe-area-inset-bottom));
+
+        font-size: 19px;
+    }
+
+    .pov-window {
+        top: 10px;
+        left: 10px;
+
+        width: calc(100vw - 20px) !important;
+        height: calc(100dvh - 20px) !important;
+
+        min-width: 0;
+        min-height: 0;
+
+        max-width: none;
+        max-height: none;
+
+        transform: none;
+        border-radius: 12px;
+    }
+
+    .pov-header {
+        padding: 12px 14px;
+    }
+
+    .pov-body {
+        gap: 8px;
+        padding: 12px 13px;
+    }
+
+    .pov-textarea {
+        font-size: 13px;
+    }
+
+    .pov-output {
+        min-height: 110px;
+    }
+
+    .pov-resize {
+        display: none;
+    }
+}
+
+/* ===== Small Phones ===== */
+
+@media (max-width: 380px) {
+    .pov-title {
+        font-size: 14px;
+    }
+
+    .pov-subtitle {
+        font-size: 9px;
+    }
+
+    .pov-body {
+        padding: 10px;
+    }
+
+    .pov-primary,
+    .pov-secondary {
+        padding: 7px 9px;
+        font-size: 10px;
+    }
+}
+
+/* ===== Short Screens / Landscape ===== */
+
+@media (max-height: 520px) {
+    .pov-window {
+        max-height: calc(100dvh - 12px);
+    }
+
+    .pov-header {
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    .pov-body {
+        gap: 6px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+
+    .pov-textarea {
+        min-height: 65px;
+    }
+
+    .pov-output {
+        min-height: 75px;
     }
 }
