@@ -1,7 +1,7 @@
-
 import { extension_settings } from "../../../extensions.js";
 import { getContext } from "../../../extensions.js";
 import { saveSettingsDebounced } from "../../../../script.js";
+import { ConnectionManagerRequestService } from "../../shared.js";
 
 const EXT = "pov-narration-refiner";
 
@@ -9,12 +9,13 @@ const DEFAULTS = {
     buttonX: null,
     buttonY: null,
     windowWidth: 460,
-    windowHeight: 570
+    windowHeight: 570,
+    connectionProfileId: null
 };
 
 let settings;
 let root, launcher;
-let inputEl, outputEl, refineButton, statusEl;
+let inputEl, outputEl, refineButton, statusEl, profileSelect;
 
 const PROMPT = `You are an RP Assistant who helps the user prepare their own roleplay messages.
 
@@ -174,14 +175,33 @@ Return only the improved roleplay message.`;
 }
 
 async function generate(text) {
+    const prompt = buildPrompt(text);
+
+    // A selected Connection Profile is used only for this extension request.
+    // It does not switch or modify the API used by the main chat.
+    if (settings.connectionProfileId) {
+        return await ConnectionManagerRequestService.sendRequest(
+            settings.connectionProfileId,
+            [{ role: "user", content: prompt }],
+            2048,
+            {
+                stream: false,
+                extractData: true,
+                includePreset: true,
+                includeInstruct: true
+            }
+        );
+    }
+
     const context = getContext();
 
     if (typeof context.generateQuietPrompt !== "function") {
         throw new Error("ไม่พบ generateQuietPrompt ใน SillyTavern Context");
     }
 
+    // Empty profile selection falls back to SillyTavern's active main connection.
     return await context.generateQuietPrompt({
-        quietPrompt: buildPrompt(text)
+        quietPrompt: prompt
     });
 }
 
@@ -225,7 +245,7 @@ async function refine() {
 
     } catch (error) {
         console.error(`[${EXT}]`, error);
-        status(error.message || "เกิดข้อผิดพลาด", "error");
+        status(error.cause?.message || error.message || "เกิดข้อผิดพลาด", "error");
 
     } finally {
         refineButton.disabled = false;
@@ -293,7 +313,8 @@ function createLauncher() {
         };
     };
 
-    // Restore saved position and keep it inside the current screen.
+    // Restore the saved position, but clamp it to the current viewport.
+    // This prevents a desktop position from leaving the button off-screen on mobile.
     if (
         Number.isFinite(settings.buttonX) &&
         Number.isFinite(settings.buttonY)
@@ -319,6 +340,7 @@ function createLauncher() {
     let originY = 0;
 
     launcher.addEventListener("pointerdown", e => {
+        // Ignore secondary mouse buttons, but allow touch and pen input.
         if (e.pointerType === "mouse" && e.button !== 0) return;
 
         dragging = true;
@@ -335,7 +357,7 @@ function createLauncher() {
         try {
             launcher.setPointerCapture(e.pointerId);
         } catch {
-            // Pointer capture may be unavailable on some mobile browsers.
+            // Pointer capture may be unavailable in some mobile browsers.
         }
 
         e.preventDefault();
@@ -389,6 +411,7 @@ function createLauncher() {
         moved = false;
     });
 
+    // Keep the launcher inside the visible screen after rotation or resizing.
     const handleViewportChange = () => {
         if (!launcher || !launcher.isConnected) return;
 
@@ -431,6 +454,27 @@ function createWindow() {
     header.append(heading, close);
 
     const body = el("div", "pov-body");
+
+    const profileLabel = el("label", "pov-label", "API / Connection Profile");
+    profileSelect = el("select", "pov-profile-select");
+    profileSelect.id = "pov-narration-refiner-profile";
+    profileSelect.setAttribute("aria-label", "เลือก Connection Profile สำหรับ RP Assistant");
+    profileSelect.style.width = "100%";
+    profileSelect.style.minHeight = "38px";
+    profileSelect.style.marginBottom = "6px";
+    profileSelect.style.padding = "8px 10px";
+    profileSelect.style.borderRadius = "8px";
+    profileSelect.style.border = "1px solid var(--SmartThemeBorderColor, #555)";
+    profileSelect.style.background = "var(--SmartThemeBlurTintColor, #222)";
+    profileSelect.style.color = "var(--SmartThemeBodyColor, #eee)";
+    profileSelect.style.font = "inherit";
+
+    const profileHint = el(
+        "div",
+        "pov-hint",
+        "เลือกโปรไฟล์เพื่อใช้ API แยกจากแชตหลัก หรือเลือกใช้การเชื่อมต่อหลัก"
+    );
+    profileHint.style.marginBottom = "12px";
 
     const inputLabel = el("label", "pov-label", "ข้อความต้นฉบับ");
 
@@ -487,6 +531,9 @@ function createWindow() {
     );
 
     body.append(
+        profileLabel,
+        profileSelect,
+        profileHint,
         inputLabel,
         inputEl,
         actions,
@@ -640,6 +687,41 @@ function init() {
         root.id = "pov-narration-refiner-root";
 
         document.body.append(root);
+    } else {
+        root = existingRoot;
+        profileSelect = root.querySelector("#pov-narration-refiner-profile");
+        inputEl = root.querySelector(".pov-textarea:not(.pov-output)");
+        outputEl = root.querySelector(".pov-output");
+        refineButton = root.querySelector(".pov-primary");
+        statusEl = root.querySelector(".pov-status");
+    }
+
+    if (profileSelect && !profileSelect.dataset.profileHandlerAttached) {
+        try {
+            ConnectionManagerRequestService.handleDropdown(
+                "#pov-narration-refiner-profile",
+                settings.connectionProfileId || "",
+                profile => {
+                    settings.connectionProfileId = profile?.id || null;
+                    save();
+                }
+            );
+
+            const mainOption = profileSelect.querySelector('option[value=""]');
+            if (mainOption) {
+                mainOption.textContent = "ใช้ API หลักของแชต (Main API)";
+            }
+
+            profileSelect.dataset.profileHandlerAttached = "true";
+        } catch (error) {
+            console.warn(`[${EXT}] Connection Profiles unavailable:`, error);
+            profileSelect.replaceChildren();
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Connection Manager ไม่พร้อมใช้งาน";
+            profileSelect.append(option);
+            profileSelect.disabled = true;
+        }
     }
 
     if (!window.povNarrationRefinerKeyHandler) {
